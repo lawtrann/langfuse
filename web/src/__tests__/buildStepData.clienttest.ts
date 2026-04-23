@@ -540,4 +540,179 @@ describe("buildStepData", () => {
       expect(userObservations[1].name).toBe("span_task");
     });
   });
+
+  describe("real scenario - Claude Code nested agent trace", () => {
+    it("should handle nested agent with generations, spans, and tools", () => {
+      // Real API response data (array order matches actual ClickHouse query result)
+      const observations: AgentGraphDataResponse[] = [
+        {
+          id: "5d3c0830995c7658",
+          node: "",
+          step: 0,
+          parentObservationId: "0af07492079065ee",
+          name: "Agent (Find RefreshTokenRepository implementation)",
+          startTime: "2026-03-20 07:15:02.225",
+          endTime: "2026-03-20 07:15:22.721",
+          observationType: "AGENT",
+        },
+        {
+          id: "0af07492079065ee",
+          node: "",
+          step: 0,
+          parentObservationId: "4d340d283410dc8e",
+          name: "Claude Response (1/2)",
+          startTime: "2026-03-20 07:14:54.299",
+          endTime: "2026-03-20 07:15:22.723",
+          observationType: "GENERATION",
+        },
+        {
+          id: "6df020b6088e85a3",
+          node: "",
+          step: 0,
+          parentObservationId: "243d88bdfdeeb141",
+          name: "[Agent 1] Claude Response (1/3)",
+          startTime: "2026-03-20 07:15:02.230",
+          endTime: "2026-03-20 07:15:06.855",
+          observationType: "GENERATION",
+        },
+        {
+          id: "8d5de4922a900bb1",
+          node: "",
+          step: 0,
+          parentObservationId: "4d340d283410dc8e",
+          name: "Claude Response (2/2)",
+          startTime: "2026-03-20 07:15:22.724",
+          endTime: "2026-03-20 07:15:26.873",
+          observationType: "GENERATION",
+        },
+        {
+          id: "98890df764c17b4f",
+          node: "",
+          step: 0,
+          parentObservationId: "243d88bdfdeeb141",
+          name: "[Agent 1] Claude Response (2/3)",
+          startTime: "2026-03-20 07:15:06.856",
+          endTime: "2026-03-20 07:15:11.209",
+          observationType: "GENERATION",
+        },
+        {
+          id: "d2871cd47802b455",
+          node: "",
+          step: 0,
+          parentObservationId: "243d88bdfdeeb141",
+          name: "[Agent 1] Claude Response (3/3)",
+          startTime: "2026-03-20 07:15:11.211",
+          endTime: "2026-03-20 07:15:22.719",
+          observationType: "GENERATION",
+        },
+        {
+          id: "0c3fee151a611af4",
+          node: "",
+          step: 0,
+          parentObservationId: "d2871cd47802b455",
+          name: "Here is the full context for `RefreshTokenReposito...",
+          startTime: "2026-03-20 07:15:22.719",
+          endTime: "2026-03-20 07:15:22.719",
+          observationType: "SPAN",
+        },
+        {
+          id: "243d88bdfdeeb141",
+          node: "",
+          step: 0,
+          parentObservationId: "5d3c0830995c7658",
+          name: "Agent Turn 1",
+          startTime: "2026-03-20 07:15:02.230",
+          endTime: "2026-03-20 07:15:22.719",
+          observationType: "SPAN",
+        },
+        {
+          id: "44eedbf12b5f0251",
+          node: "",
+          step: 0,
+          parentObservationId: "8d5de4922a900bb1",
+          name: "The concrete implementation is in [app/infra/sqlmo...",
+          startTime: "2026-03-20 07:15:26.873",
+          endTime: "2026-03-20 07:15:26.873",
+          observationType: "SPAN",
+        },
+        {
+          id: "4d340d283410dc8e",
+          node: "",
+          step: 0,
+          parentObservationId: null,
+          name: "Claude Code - Turn 1",
+          startTime: "2026-03-20 07:14:54.299",
+          endTime: "2026-03-20 07:15:26.873",
+          observationType: "SPAN",
+        },
+        {
+          id: "789621472e571d9f",
+          node: "",
+          step: 0,
+          parentObservationId: "98890df764c17b4f",
+          name: "Now let me call the GitNexus context tool for `Ref...",
+          startTime: "2026-03-20 07:15:10.913",
+          endTime: "2026-03-20 07:15:10.915",
+          observationType: "SPAN",
+        },
+        {
+          id: "35d54bd8fae69f24",
+          node: "",
+          step: 0,
+          parentObservationId: "6df020b6088e85a3",
+          name: "Tool: ToolSearch",
+          startTime: "2026-03-20 07:15:06.852",
+          endTime: "2026-03-20 07:15:06.854",
+          observationType: "TOOL",
+        },
+        {
+          id: "3f5a0363d2a49f64",
+          node: "",
+          step: 0,
+          parentObservationId: "98890df764c17b4f",
+          name: "Tool: gitnexus - context (MCP)",
+          startTime: "2026-03-20 07:15:10.915",
+          endTime: "2026-03-20 07:15:11.209",
+          observationType: "TOOL",
+        },
+      ];
+
+      const result = buildStepData(observations);
+      const userObs = result.filter((obs) => !obs.name.includes("__"));
+
+      // All 13 observations should be present (no EVENTs to filter)
+      expect(userObs).toHaveLength(13);
+
+      const findObs = (id: string) => userObs.find((o) => o.id === id);
+
+      const rootSpan = findObs("4d340d283410dc8e")!;
+      const gen1 = findObs("0af07492079065ee")!;
+      const agent = findObs("5d3c0830995c7658")!;
+      const agentTurn = findObs("243d88bdfdeeb141")!;
+      const agentGen1 = findObs("6df020b6088e85a3")!;
+      const toolSearch = findObs("35d54bd8fae69f24")!;
+      const agentGen2 = findObs("98890df764c17b4f")!;
+      const gitNexusSpan = findObs("789621472e571d9f")!;
+      const gitNexusTool = findObs("3f5a0363d2a49f64")!;
+      const agentGen3 = findObs("d2871cd47802b455")!;
+      const agentGen3Result = findObs("0c3fee151a611af4")!;
+      const gen2 = findObs("8d5de4922a900bb1")!;
+      const gen2Result = findObs("44eedbf12b5f0251")!;
+
+      // Verify exact step assignments
+      expect(rootSpan.step).toBe(1);
+      expect(gen1.step).toBe(2);
+      expect(agent.step).toBe(3);
+      expect(agentTurn.step).toBe(4);
+      expect(agentGen1.step).toBe(5);
+      expect(toolSearch.step).toBe(6);
+      expect(agentGen2.step).toBe(7);
+      expect(gitNexusSpan.step).toBe(8);
+      expect(gitNexusTool.step).toBe(8);
+      expect(agentGen3.step).toBe(9);
+      expect(agentGen3Result.step).toBe(10);
+      expect(gen2.step).toBe(11);
+      expect(gen2Result.step).toBe(12);
+    });
+  });
 });

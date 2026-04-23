@@ -119,6 +119,7 @@ export const TraceGraphCanvas: React.FC<TraceGraphCanvasProps> = (props) => {
           id: node.id,
           label: node.label,
           color: getNodeStyle(node.type),
+          level: node.level,
         };
 
         // Special positioning and colors for system nodes

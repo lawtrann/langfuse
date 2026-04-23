@@ -185,6 +185,18 @@ function assignGlobalTimingSteps(
     }));
   } // end loop to check if parent-child constraints require step adjustments
 
+  // Compact steps to remove gaps created by cumulative adjustments
+  const usedSteps = [
+    ...new Set(
+      result.map((o) => o.step).filter((s): s is number => s !== null),
+    ),
+  ].sort((a, b) => a - b);
+  const stepMap = new Map(usedSteps.map((step, i) => [step, i + 1]));
+  result = result.map((obs) => ({
+    ...obs,
+    step: obs.step !== null ? (stepMap.get(obs.step) ?? obs.step) : obs.step,
+  }));
+
   return result;
 }
 

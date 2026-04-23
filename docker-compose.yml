@@ -69,7 +69,9 @@ services:
       SMTP_CONNECTION_URL: ${SMTP_CONNECTION_URL:-}
 
   langfuse-web:
-    image: docker.io/langfuse/langfuse:3
+    build:
+      context: .
+      dockerfile: web/Dockerfile
     restart: always
     depends_on: *langfuse-depends-on
     ports:
@@ -113,7 +115,8 @@ services:
     restart: always
     entrypoint: sh
     # create the 'langfuse' bucket before starting the service
-    command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
+    command: -c 'mkdir -p /data/langfuse && minio server --address ":9000"
+      --console-address ":9001" /data'
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-miniosecret} # CHANGEME
@@ -123,7 +126,7 @@ services:
     volumes:
       - langfuse_minio_data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: [ "CMD", "mc", "ready", "local" ]
       interval: 1s
       timeout: 5s
       retries: 5
@@ -134,14 +137,13 @@ services:
     restart: always
     # CHANGEME: row below to secure redis password
     command: >
-      --requirepass ${REDIS_AUTH:-myredissecret}
-      --maxmemory-policy noeviction
+      --requirepass ${REDIS_AUTH:-myredissecret} --maxmemory-policy noeviction
     ports:
       - 127.0.0.1:6379:6379
     volumes:
       - langfuse_redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 3s
       timeout: 10s
       retries: 10
@@ -150,7 +152,7 @@ services:
     image: docker.io/postgres:${POSTGRES_VERSION:-17}
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 3s
       timeout: 3s
       retries: 10

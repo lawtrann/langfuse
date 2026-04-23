@@ -143,17 +143,38 @@ export function buildGraphFromStepData(
   const allStepNodes = Array.from(stepToNodesMap.values()).flatMap((set) =>
     Array.from(set),
   );
-  const nodeNames = [...new Set([...allStepNodes, LANGFUSE_END_NODE_NAME])];
+  const nodeNames = Array.from(
+    new Set([...allStepNodes, LANGFUSE_END_NODE_NAME]),
+  );
+
+  // Build a map from node name to its minimum step number for level assignment
+  const nodeToMinStep = new Map<string, number>();
+  Array.from(stepToNodesMap.entries()).forEach(([step, nodeSet]) => {
+    Array.from(nodeSet).forEach((nodeName) => {
+      const existing = nodeToMinStep.get(nodeName);
+      if (existing === undefined || step < existing) {
+        nodeToMinStep.set(nodeName, step);
+      }
+    });
+  });
+
+  const maxStep = Math.max(...Array.from(stepToNodesMap.keys()), 0);
 
   const nodes: GraphNodeData[] = nodeNames.map((nodeName) => {
-    if (
-      nodeName === LANGFUSE_END_NODE_NAME ||
-      nodeName === LANGFUSE_START_NODE_NAME
-    ) {
+    if (nodeName === LANGFUSE_START_NODE_NAME) {
       return {
         id: nodeName,
         label: nodeName,
         type: "LANGGRAPH_SYSTEM",
+        level: 0,
+      };
+    }
+    if (nodeName === LANGFUSE_END_NODE_NAME) {
+      return {
+        id: nodeName,
+        label: nodeName,
+        type: "LANGGRAPH_SYSTEM",
+        level: maxStep,
       };
     }
     const obs = data.find((o) => o.node === nodeName);
@@ -161,6 +182,7 @@ export function buildGraphFromStepData(
       id: nodeName,
       label: nodeName,
       type: obs?.observationType || "UNKNOWN",
+      level: nodeToMinStep.get(nodeName) ?? obs?.step ?? 0,
     };
   });
 
@@ -176,7 +198,9 @@ function generateEdgesWithParallelBranches(
   stepToNodesMap: Map<number, Set<string>>,
 ) {
   // generate edges with proper parallel branch handling
-  const sortedSteps = [...stepToNodesMap.entries()].sort(([a], [b]) => a - b);
+  const sortedSteps = Array.from(stepToNodesMap.entries()).sort(
+    ([a], [b]) => a - b,
+  );
   const edges: Array<{ from: string; to: string }> = [];
 
   sortedSteps.forEach(([, currentNodes], i) => {
